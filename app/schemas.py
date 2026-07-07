@@ -1,6 +1,28 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 
+# User schemas
+class UserBase(BaseModel):
+    email: str = Field(..., description="The user's email address")
+
+class UserCreate(UserBase):
+    password: str = Field(..., min_length=4)
+
+class UserResponse(UserBase):
+    id: int
+
+    class Config:
+        from_attributes = True
+
+# Token schemas
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+
+# Item schemas
 class ItemBase(BaseModel):
     name: str = Field(..., min_length=1, description="The name of the item (cannot be empty)")
     description: Optional[str] = Field(None, description="An optional description of the item")
@@ -18,8 +40,7 @@ class ItemUpdate(BaseModel):
 
 class ItemResponse(ItemBase):
     id: int
+    user_id: int
 
     class Config:
         from_attributes = True
-        # Pydantic v2 also supports model_config:
-        # model_config = {"from_attributes": True}
