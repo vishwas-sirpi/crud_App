@@ -1,5 +1,6 @@
+from datetime import datetime
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import List, Optional
 
 # User schemas
 class UserBase(BaseModel):
@@ -26,6 +27,7 @@ class TokenData(BaseModel):
 class ItemBase(BaseModel):
     name: str = Field(..., min_length=1, description="The name of the item (cannot be empty)")
     description: Optional[str] = Field(None, description="An optional description of the item")
+    category: Optional[str] = Field(None, description="An optional category for the item")
     price: float = Field(..., gt=0, description="The price of the item (must be positive)")
     quantity: int = Field(0, ge=0, description="The quantity of the item (must be non-negative)")
 
@@ -35,12 +37,23 @@ class ItemCreate(ItemBase):
 class ItemUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, description="The name of the item (cannot be empty if provided)")
     description: Optional[str] = Field(None, description="An optional description of the item")
+    category: Optional[str] = Field(None, description="An optional category for the item")
     price: Optional[float] = Field(None, gt=0, description="The price of the item (must be positive if provided)")
     quantity: Optional[int] = Field(None, ge=0, description="The quantity of the item (must be non-negative if provided)")
 
 class ItemResponse(ItemBase):
     id: int
     user_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class PaginatedItems(BaseModel):
+    total: int
+    skip: int
+    limit: int
+    items: List[ItemResponse]
 
     class Config:
         from_attributes = True

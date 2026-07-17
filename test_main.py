@@ -61,7 +61,10 @@ class TestCRUD(unittest.TestCase):
         response = self.client.get("/items")
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(len(data), 2)
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(data["skip"], 0)
+        self.assertEqual(data["limit"], 10)
+        self.assertEqual(len(data["items"]), 2)
 
     def test_04_read_item_by_id(self):
         response = self.client.get("/items/1")
@@ -106,6 +109,67 @@ class TestCRUD(unittest.TestCase):
         data = response.json()
         # Item 1 is still there
         self.assertEqual(len(data), 1)
+
+    def test_08_create_items_for_querying(self):
+        headers = {"Authorization": f"Bearer {self.token1}"}
+        items = [
+            {"name": "Dragon Story", "price": 20.0, "quantity": 4, "category": "fiction", "description": "A dragon adventure"},
+            {"name": "Science Journal", "price": 35.0, "quantity": 1, "category": "non-fiction", "description": "Research papers"},
+            {"name": "Fictional Tales", "price": 15.0, "quantity": 2, "category": "fiction", "description": "Short stories of fantasy"},
+        ]
+        for item in items:
+            response = self.client.post("/items", json=item, headers=headers)
+            self.assertEqual(response.status_code, 201)
+
+    def test_09_filter_by_category(self):
+        response = self.client.get("/items?category=fiction")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["total"], 2)
+        self.assertEqual(data["skip"], 0)
+        self.assertEqual(data["limit"], 10)
+        self.assertEqual(len(data["items"]), 2)
+        for item in data["items"]:
+            self.assertEqual(item["category"], "fiction")
+
+    def test_10_search_items(self):
+        response = self.client.get("/items?search=dragon")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertGreaterEqual(data["total"], 1)
+        self.assertEqual(len(data["items"]), 1)
+        self.assertEqual(data["items"][0]["name"], "Dragon Story")
+
+    def test_11_sort_items(self):
+        response = self.client.get("/items?sort_by=price&order=asc")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        prices = [item["price"] for item in data["items"]]
+        self.assertEqual(prices, sorted(prices))
+
+        response = self.client.get("/items?sort_by=price&order=desc")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        prices = [item["price"] for item in data["items"]]
+        self.assertEqual(prices, sorted(prices, reverse=True))
+
+    def test_12_combined_query_params(self):
+        response = self.client.get("/items?category=fiction&search=dragon&sort_by=price&order=desc&skip=0&limit=10")
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["total"], 1)
+        self.assertEqual(len(data["items"]), 1)
+        self.assertEqual(data["items"][0]["name"], "Dragon Story")
+
+    def test_13_invalid_sort_by(self):
+        response = self.client.get("/items?sort_by=invalid_field")
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("sort_by must be one of", response.json()["detail"])
+
+    def test_14_limit_above_max(self):
+        response = self.client.get("/items?limit=101")
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()["detail"], "limit must not exceed 100")
 
 if __name__ == "__main__":
     unittest.main()

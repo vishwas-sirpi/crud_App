@@ -1,3 +1,5 @@
+from typing import List, Optional, Tuple
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from . import models, schemas
 
@@ -17,8 +19,54 @@ def create_user(db: Session, user: schemas.UserCreate, hashed_password: str):
 def get_item(db: Session, item_id: int):
     return db.query(models.Item).filter(models.Item.id == item_id).first()
 
-def get_items(db: Session, skip: int = 0, limit: int = 10):
-    return db.query(models.Item).offset(skip).limit(limit).all()
+def get_items(
+    db: Session,
+    skip: int = 0,
+    limit: int = 10,
+    category: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    search: Optional[str] = None,
+    sort_by: Optional[str] = None,
+    order: str = "asc",
+) -> Tuple[int, List[models.Item]]:
+    query = db.query(models.Item)
+
+    if category:
+        query = query.filter(models.Item.category == category)
+
+    if min_price is not None:
+        query = query.filter(models.Item.price >= min_price)
+
+    if max_price is not None:
+        query = query.filter(models.Item.price <= max_price)
+
+    if search:
+        pattern = f"%{search.lower()}%"
+        query = query.filter(
+            or_(
+                func.lower(models.Item.name).like(pattern),
+                func.lower(models.Item.description).like(pattern)
+            )
+        )
+
+    total = query.count()
+
+    if sort_by:
+        sort_columns = {
+            "price": models.Item.price,
+            "created_at": models.Item.created_at,
+            "name": models.Item.name,
+        }
+        sort_column = sort_columns.get(sort_by)
+        if sort_column is not None:
+            if order.lower() == "desc":
+                query = query.order_by(sort_column.desc())
+            else:
+                query = query.order_by(sort_column.asc())
+
+    items = query.offset(skip).limit(limit).all()
+    return total, items
 
 def get_user_items(db: Session, user_id: int):
     return db.query(models.Item).filter(models.Item.user_id == user_id).all()
@@ -27,6 +75,7 @@ def create_item(db: Session, item: schemas.ItemCreate, user_id: int):
     db_item = models.Item(
         name=item.name,
         description=item.description,
+        category=item.category,
         price=item.price,
         quantity=item.quantity,
         user_id=user_id

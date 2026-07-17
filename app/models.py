@@ -19,8 +19,10 @@ class Item(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
+    category = Column(String, nullable=True, index=True)
     price = Column(Float, nullable=False)
     quantity = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
     user_id = Column(Integer, ForeignKey("users.id"))
 
     owner = relationship("User", back_populates="items")
